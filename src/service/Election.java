@@ -165,7 +165,7 @@ public class Election {
             level = CommitteeLevel.DISTRICT;
         }
         if (!declared) {
-            throw new IllegalStateException("Election not declared or already closed");
+            return false;
         }
         if (currentUser == null) return false;
         if (currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.PRESIDENT) {
@@ -204,7 +204,11 @@ public class Election {
     }
 
     public Map<Role, List<Member>> getAllCandidates() {
-        return candidates;
+        Map<Role, List<Member>> snapshot = new EnumMap<>(Role.class);
+        for (Map.Entry<Role, List<Member>> entry : candidates.entrySet()) {
+            snapshot.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return snapshot;
     }
 
     public boolean isDeclared() {

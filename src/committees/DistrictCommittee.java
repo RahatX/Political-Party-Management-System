@@ -25,14 +25,16 @@ public class DistrictCommittee extends Committee implements CommitteeOperations 
     }
 
     public void addMember(Member m) {
-        if (m != null) member.add(m);
+        if (m != null && !member.contains(m)) {
+            member.add(m);
+        }
     }
 
     public void addMember(Member m, Role role, CommitteeLevel level){
         if (m == null) return;
         m.setRole(role);
         m.setCommitteeLevel(level);
-        member.add(m);
+        addMember(m);
     }
 
     public boolean removeMember(Member m) {
@@ -45,14 +47,16 @@ public class DistrictCommittee extends Committee implements CommitteeOperations 
 
     @Override
     public void addLeader(Member m) {
-        if (m != null) districtCommitteeLeader.add(m);
+        if (m != null && !districtCommitteeLeader.contains(m)) {
+            districtCommitteeLeader.add(m);
+        }
     }
 
     public void addLeader(Member m, Role role, CommitteeLevel level){
         if (m == null) return;
         m.setRole(role);
         m.setCommitteeLevel(level);
-        districtCommitteeLeader.add(m);
+        addLeader(m);
     }
 
     @Override

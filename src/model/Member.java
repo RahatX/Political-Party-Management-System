@@ -27,7 +27,7 @@ public class Member implements Comparable<Member> {
         this.password=password;
         this.profession=profession;
         this.yearlyIncome=yearlyIncome;
-        this.donation=calculateDonation(yearlyIncome);
+        this.donation=0;
         this.hasDonated=hasDonated;
         this.isApproved=isApproved;
         this.address=address;

@@ -3,23 +3,36 @@ package service;
 import committees.*;
 import exceptions.*;
 import java.io.*;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.*;
 import model.*;
 
-public class PartySystem{
+public class PartySystem {
 
     private final CentralCommittee centralCommittee;
     private final Map<Division, DivisionalCommittee> divisionCommittees = new EnumMap<>(Division.class);
     private final Map<District, DistrictCommittee> districtCommittees = new EnumMap<>(District.class);
     private final List<Member> pendingApplications = new ArrayList<>();
+    private final List<DonationRecord> donationHistory = new ArrayList<>();
     private final Member adminUser;
 
-    private static final String DATA_DIR = "data";
-    private static final String MEMBERS_FILE = DATA_DIR + File.separator + "data_members.csv";
-    private static final String PENDING_FILE = DATA_DIR + File.separator + "data_pending.csv";
-    private static final String DONATIONS_FILE = DATA_DIR + File.separator + "data_donations.txt";
+    private final Path dataDirectory;
+    private final Path membersFile;
+    private final Path pendingFile;
+    private final Path donationsFile;
+    private final Path donationHistoryFile;
 
-    public PartySystem(){
+    public PartySystem() {
+        this(Path.of("data"));
+    }
+
+    public PartySystem(Path dataDirectory) {
+        this.dataDirectory = Objects.requireNonNull(dataDirectory, "dataDirectory");
+        membersFile = dataDirectory.resolve("data_members.csv");
+        pendingFile = dataDirectory.resolve("data_pending.csv");
+        donationsFile = dataDirectory.resolve("data_donations.txt");
+        donationHistoryFile = dataDirectory.resolve("data_donations_history.csv");
         centralCommittee = new CentralCommittee("National Central Committee");
         buildCommitteeStructure();
         try {
@@ -78,11 +91,15 @@ public class PartySystem{
     }
 
     public Member applyForMembership(Member newMember) throws DuplicateMemberException {
-        if (newMember.getEmail() == null) return null;
-        if (findById(newMember.getNationalId()) != null)
+        if (newMember == null || newMember.getEmail() == null || newMember.getNationalId() == null) {
+            return null;
+        }
+        if (findById(newMember.getNationalId()) != null) {
             throw new DuplicateMemberException("Duplicate National ID");
-        if (findByEmail(newMember.getEmail()) != null)
+        }
+        if (findByEmail(newMember.getEmail()) != null) {
             throw new DuplicateMemberException("Duplicate Email");
+        }
         pendingApplications.add(newMember);
         return newMember;
     }
@@ -126,65 +143,35 @@ public class PartySystem{
     public boolean terminateMembershipID(String nationalId) {
         Member member = findById(nationalId);
         if (member == null || member.getRole() == Role.ADMIN) return false;
-        CommitteeLevel cl = member.getCommitteeLevel();
-        if (cl == null) return false;
-        switch (cl) {
-            case CENTRAL:
-                centralCommittee.getLeaders().remove(member);
-                break;
-            case DIVISIONAL:
-                DivisionalCommittee dc = getDivisionalCommittee(member.getAddress().getDivision());
-                if (dc != null) dc.getLeaders().remove(member);
-                break;
-            case DISTRICT:
-                DistrictCommittee distCommittee = getDistrictCommittee(member.getAddress().getDistrict());
-                if (distCommittee != null) {
-                    distCommittee.getLeaders().remove(member);
-                    distCommittee.getMembers().remove(member);
-                }
-                break;
-            default:
-                break;
-        }
+        removeFromAllPlacements(member);
+        pendingApplications.remove(member);
+        member.setApproved(false);
         return true;
     }
 
     public boolean terminateMembershipEmail(String email) {
         Member member = findByEmail(email);
         if (member == null || member.getRole() == Role.ADMIN) return false;
-        CommitteeLevel cl = member.getCommitteeLevel();
-        if (cl == null) return false;
-        switch (cl) {
-            case CENTRAL:
-                centralCommittee.getLeaders().remove(member);
-                break;
-            case DIVISIONAL:
-                DivisionalCommittee dc = getDivisionalCommittee(member.getAddress().getDivision());
-                if (dc != null) dc.getLeaders().remove(member);
-                break;
-            case DISTRICT:
-                DistrictCommittee distCommittee = getDistrictCommittee(member.getAddress().getDistrict());
-                if (distCommittee != null) {
-                    distCommittee.getLeaders().remove(member);
-                    distCommittee.getMembers().remove(member);
-                }
-                break;
-            default:
-                break;
-        }
-        return true;
+        return terminateMembershipID(member.getNationalId());
     }
 
     public boolean promoteToLeader(String nationalId, CommitteeLevel level, Role newRole, Division division, District district) {
-        if (newRole == Role.MEMBER || newRole == Role.ADMIN) return false;
+        if (level == null || newRole == null || newRole == Role.MEMBER || newRole == Role.ADMIN) {
+            return false;
+        }
         Member member = findById(nationalId);
         if (member == null || !member.isApproved()) return false;
+        if (level == CommitteeLevel.DIVISIONAL
+                && division != null
+                && member.getAddress().getDivision() != division) {
+            return false;
+        }
         if (district != null && member.getAddress().getDistrict() != district) {
             member.setAddress(new Address(district));
         }
+        removeFromAllPlacements(member);
         member.setCommitteeLevel(level);
         member.setRole(newRole);
-        if (level == null) return false;
         switch (level) {
             case CENTRAL:
                 centralCommittee.addLeader(member);
@@ -209,65 +196,65 @@ public class PartySystem{
 
     public boolean demoteLeader(String email) {
         Member member = findByEmail(email);
-        if (member == null || member.getRole() == Role.ADMIN) return false;
-        CommitteeLevel cl = member.getCommitteeLevel();
-        if (cl == null) return false;
-        switch (cl) {
-            case CENTRAL:
-                centralCommittee.removeLeader(member);
-                break;
-            case DIVISIONAL:
-                DivisionalCommittee dc = getDivisionalCommittee(member.getAddress().getDivision());
-                if (dc != null) dc.removeLeader(member);
-                break;
-            case DISTRICT:
-                DistrictCommittee dist = getDistrictCommittee(member.getAddress().getDistrict());
-                if (dist != null) dist.removeLeader(member);
-                break;
-            default:
-                break;
+        if (member == null || member.getRole() == Role.ADMIN || member.getRole() == Role.MEMBER) {
+            return false;
         }
+        removeFromAllPlacements(member);
         member.setRole(Role.MEMBER);
         member.setCommitteeLevel(CommitteeLevel.DISTRICT);
+        getDistrictCommittee(member.getAddress().getDistrict()).addMember(member);
         return true;
     }
 
     public boolean declareElection(Committee committee, Member currentUser) {
-        if (committee instanceof CentralCommittee){
-            for(Member leader: centralCommittee.getLeaders()){
-                demoteLeader(leader.getEmail());
-            }
-            centralCommittee.getLeaders().clear();
+        if (committee instanceof CentralCommittee) {
             return centralCommittee.getElection().declareElection(currentUser);
         } else if (committee instanceof DivisionalCommittee) {
             DivisionalCommittee divCommittee = (DivisionalCommittee) committee;
-            for(Member leader: divCommittee.getLeaders()){
-                demoteLeader(leader.getEmail());
-            }
-            divCommittee.getLeaders().clear();
             return divCommittee.getElection().declareElection(currentUser);
         } else if (committee instanceof DistrictCommittee) {
             DistrictCommittee distCommittee = (DistrictCommittee) committee;
-            for(Member leader: distCommittee.getLeaders()){
-                demoteLeader(leader.getEmail());
-            }
-            distCommittee.getLeaders().clear();
             return distCommittee.getElection().declareElection(currentUser);
         }
         return false;
     }
 
     public boolean closeElection(Committee committee, Member currentUser) {
-        if (committee instanceof CentralCommittee){
-            return centralCommittee.getElection().closeElection(currentUser);
+        List<Member> formerLeaders;
+        Election election;
+        if (committee instanceof CentralCommittee) {
+            formerLeaders = new ArrayList<>(centralCommittee.getLeaders());
+            election = centralCommittee.getElection();
         } else if (committee instanceof DivisionalCommittee) {
             DivisionalCommittee divCommittee = (DivisionalCommittee) committee;
-            return divCommittee.getElection().closeElection(currentUser);
+            formerLeaders = new ArrayList<>(divCommittee.getLeaders());
+            election = divCommittee.getElection();
         } else if (committee instanceof DistrictCommittee) {
             DistrictCommittee distCommittee = (DistrictCommittee) committee;
-            return distCommittee.getElection().closeElection(currentUser);
+            formerLeaders = new ArrayList<>(distCommittee.getLeaders());
+            election = distCommittee.getElection();
+        } else {
+            return false;
         }
-        return false;
+
+        if (!election.closeElection(currentUser)) {
+            return false;
+        }
+        List<Member> winners = election.getWinners();
+        for (Member former : formerLeaders) {
+            if (former.getRole() == Role.ADMIN) continue;
+            removeFromAllPlacements(former);
+            if (!winners.contains(former)) {
+                former.setRole(Role.MEMBER);
+                former.setCommitteeLevel(CommitteeLevel.DISTRICT);
+                getDistrictCommittee(former.getAddress().getDistrict()).addMember(former);
+            }
+        }
+        for (Member winner : winners) {
+            removeFromAllPlacements(winner);
+            addLeaderToCommittee(committee, winner);
+        }
+        return true;
     }
 
     public boolean vote(Committee committee, Role role, Member candidate, Member voter) {
@@ -306,24 +293,42 @@ public class PartySystem{
 
     public Member findByEmail(String email) {
         if (email == null) return null;
-        String emailLower = email.toLowerCase();
+        String emailLower = email.trim().toLowerCase(Locale.ROOT);
+        for (Member m : pendingApplications) {
+            if (m.getEmail() != null
+                    && m.getEmail().trim().toLowerCase(Locale.ROOT).equals(emailLower)) {
+                return m;
+            }
+        }
         // Central leaders
         for (Member m : centralCommittee.getLeaders()) {
-            if (m.getEmail() != null && m.getEmail().toLowerCase().equals(emailLower)) return m;
+            if (m.getEmail() != null
+                    && m.getEmail().trim().toLowerCase(Locale.ROOT).equals(emailLower)) {
+                return m;
+            }
         }
         // Divisional leaders
         for (DivisionalCommittee div : divisionCommittees.values()) {
             for (Member m : div.getLeaders()) {
-                if (m.getEmail() != null && m.getEmail().toLowerCase().equals(emailLower)) return m;
+                if (m.getEmail() != null
+                        && m.getEmail().trim().toLowerCase(Locale.ROOT).equals(emailLower)) {
+                    return m;
+                }
             }
         }
         // District leaders and members
         for (DistrictCommittee dist : districtCommittees.values()) {
             for (Member m : dist.getLeaders()) {
-                if (m.getEmail() != null && m.getEmail().toLowerCase().equals(emailLower)) return m;
+                if (m.getEmail() != null
+                        && m.getEmail().trim().toLowerCase(Locale.ROOT).equals(emailLower)) {
+                    return m;
+                }
             }
             for (Member m : dist.getMembers()) {
-                if (m.getEmail() != null && m.getEmail().toLowerCase().equals(emailLower)) return m;
+                if (m.getEmail() != null
+                        && m.getEmail().trim().toLowerCase(Locale.ROOT).equals(emailLower)) {
+                    return m;
+                }
             }
         }
         return null;
@@ -331,6 +336,10 @@ public class PartySystem{
 
     public Member findById(String nationalId) {
         if (nationalId == null) return null;
+        nationalId = nationalId.trim();
+        for (Member m : pendingApplications) {
+            if (nationalId.equals(m.getNationalId())) return m;
+        }
         // Central leaders
         for (Member m : centralCommittee.getLeaders()) {
             if (nationalId.equals(m.getNationalId())) return m;
@@ -357,12 +366,65 @@ public class PartySystem{
         return centralCommittee.getTotalDonations();
     }
 
+    public DonationRecord recordDonation(Member member, double amount)
+            throws InvalidDonationException {
+        centralCommittee.addDonation(amount);
+        if (member != null) {
+            member.setDonation(member.getDonation() + amount);
+            member.setHasDonated(true);
+        }
+        DonationRecord record = new DonationRecord(
+                Instant.now(),
+                member == null ? "Anonymous" : member.getName(),
+                amount);
+        donationHistory.add(0, record);
+        return record;
+    }
+
+    public List<DonationRecord> getDonationHistory() {
+        return new ArrayList<>(donationHistory);
+    }
+
+    public List<Member> getAllApprovedMembers() {
+        LinkedHashMap<String, Member> uniqueMembers = new LinkedHashMap<>();
+        collectApprovedMembers(centralCommittee.getLeaders(), uniqueMembers);
+        for (DivisionalCommittee committee : divisionCommittees.values()) {
+            collectApprovedMembers(committee.getLeaders(), uniqueMembers);
+        }
+        for (DistrictCommittee committee : districtCommittees.values()) {
+            collectApprovedMembers(committee.getLeaders(), uniqueMembers);
+            collectApprovedMembers(committee.getMembers(), uniqueMembers);
+        }
+        List<Member> members = new ArrayList<>(uniqueMembers.values());
+        members.sort(Comparator.comparing(Member::getName, String.CASE_INSENSITIVE_ORDER));
+        return members;
+    }
+
+    public List<Member> getAllLeaders() {
+        List<Member> leaders = new ArrayList<>();
+        for (Member member : getAllApprovedMembers()) {
+            if (member.getRole() != Role.MEMBER) {
+                leaders.add(member);
+            }
+        }
+        return leaders;
+    }
+
+    public SystemStats getStats() {
+        return new SystemStats(
+                getAllApprovedMembers().size(),
+                pendingApplications.size(),
+                getAllLeaders().size(),
+                countActiveElections(),
+                centralCommittee.getTotalDonations());
+    }
+
     public void saveToFiles() {
         try {
-            File membersFile = new File(MEMBERS_FILE);
-            File pendingFile = new File(PENDING_FILE);
-            File donationsFile = new File(DONATIONS_FILE);
-            File parent = membersFile.getParentFile();
+            File membersOutputFile = membersFile.toFile();
+            File pendingOutputFile = pendingFile.toFile();
+            File donationsOutputFile = donationsFile.toFile();
+            File parent = membersOutputFile.getParentFile();
             if (parent != null) {
                 parent.mkdirs();
             }
@@ -388,7 +450,7 @@ public class PartySystem{
                 }
             }
             approvedMembers.sort(null);
-            try (PrintWriter out = new PrintWriter(membersFile)) {
+            try (PrintWriter out = new PrintWriter(membersOutputFile)) {
                 // Format: nid,name,email,phone,password,profession,yearlyIncome,donation,hasDonated,isApproved,division,district,role,committeeLevel
                 for (Member member : approvedMembers) {
                     out.print(member.getNationalId()); out.print(",");
@@ -411,7 +473,7 @@ public class PartySystem{
             // Sort pending applications by name
             List<Member> pendingSorted = new ArrayList<>(pendingApplications);
             pendingSorted.sort(null);
-            try (PrintWriter out = new PrintWriter(pendingFile)) {
+            try (PrintWriter out = new PrintWriter(pendingOutputFile)) {
                 // Format similar to members file (division,district)
                 for (Member member : pendingSorted) {
                     out.print(member.getNationalId()); out.print(",");
@@ -430,8 +492,19 @@ public class PartySystem{
                     out.print(member.getCommitteeLevel().name()); out.println();
                 }
             }
-            try(PrintWriter out = new PrintWriter(donationsFile)){
+            try (PrintWriter out = new PrintWriter(donationsOutputFile)) {
                 out.print(centralCommittee.getTotalDonations());
+            }
+            try (PrintWriter out = new PrintWriter(donationHistoryFile.toFile())) {
+                List<DonationRecord> chronologicalHistory = new ArrayList<>(donationHistory);
+                Collections.reverse(chronologicalHistory);
+                for (DonationRecord record : chronologicalHistory) {
+                    out.print(record.getTimestamp());
+                    out.print(",");
+                    out.print(sanitizeCsvValue(record.getDonor()));
+                    out.print(",");
+                    out.println(record.getAmount());
+                }
             }
         } catch (IOException e) {
             System.out.println("Save failed: " + e.getMessage());
@@ -449,9 +522,11 @@ public class PartySystem{
         }
         pendingApplications.clear();
 
-        File membersFile = new File(MEMBERS_FILE);
-        if (membersFile.exists()) {
-            try (Scanner scanner = new Scanner(membersFile)) {
+        donationHistory.clear();
+
+        File membersInputFile = membersFile.toFile();
+        if (membersInputFile.exists()) {
+            try (Scanner scanner = new Scanner(membersInputFile)) {
                 while (scanner.hasNextLine()) {
                     String line = scanner.nextLine();
                     if (line.isBlank()) {
@@ -503,9 +578,9 @@ public class PartySystem{
             }
         }
 
-        File pendingFile = new File(PENDING_FILE);
-        if (pendingFile.exists()) {
-            try (Scanner scanner = new Scanner(pendingFile)) {
+        File pendingInputFile = pendingFile.toFile();
+        if (pendingInputFile.exists()) {
+            try (Scanner scanner = new Scanner(pendingInputFile)) {
                 while (scanner.hasNextLine()) {
                     String line = scanner.nextLine();
                     if (line.isBlank()) {
@@ -541,9 +616,9 @@ public class PartySystem{
             }
         }
 
-        File donationsFile = new File(DONATIONS_FILE);
-        if (donationsFile.exists()) {
-            try (Scanner scanner = new Scanner(donationsFile)) {
+        File donationsInputFile = donationsFile.toFile();
+        if (donationsInputFile.exists()) {
+            try (Scanner scanner = new Scanner(donationsInputFile)) {
                 if (scanner.hasNextDouble()) {
                     double donations = scanner.nextDouble();
                     centralCommittee.setTotalDonations(donations);
@@ -552,5 +627,68 @@ public class PartySystem{
                 System.out.println("Donations file load failed: " + e.getMessage());
             }
         }
+
+        File historyInputFile = donationHistoryFile.toFile();
+        if (historyInputFile.exists()) {
+            try (Scanner scanner = new Scanner(historyInputFile)) {
+                while (scanner.hasNextLine()) {
+                    String[] values = scanner.nextLine().split(",", 3);
+                    if (values.length != 3) continue;
+                    DonationRecord record = new DonationRecord(
+                            Instant.parse(values[0]),
+                            values[1],
+                            Double.parseDouble(values[2]));
+                    donationHistory.add(0, record);
+                }
+            } catch (Exception e) {
+                System.out.println("Donation history load failed: " + e.getMessage());
+            }
+        }
+    }
+
+    private void removeFromAllPlacements(Member member) {
+        centralCommittee.getLeaders().remove(member);
+        for (DivisionalCommittee committee : divisionCommittees.values()) {
+            committee.getLeaders().remove(member);
+        }
+        for (DistrictCommittee committee : districtCommittees.values()) {
+            committee.getLeaders().remove(member);
+            committee.getMembers().remove(member);
+        }
+    }
+
+    private void addLeaderToCommittee(Committee committee, Member member) {
+        if (committee instanceof CentralCommittee) {
+            ((CentralCommittee) committee).addLeader(member);
+        } else if (committee instanceof DivisionalCommittee) {
+            ((DivisionalCommittee) committee).addLeader(member);
+        } else if (committee instanceof DistrictCommittee) {
+            ((DistrictCommittee) committee).addLeader(member);
+        }
+    }
+
+    private void collectApprovedMembers(
+            List<Member> source,
+            Map<String, Member> destination) {
+        for (Member member : source) {
+            if (member.isApproved() && member.getRole() != Role.ADMIN) {
+                destination.putIfAbsent(member.getNationalId(), member);
+            }
+        }
+    }
+
+    private int countActiveElections() {
+        int activeElections = centralCommittee.getElection().isDeclared() ? 1 : 0;
+        for (DivisionalCommittee committee : divisionCommittees.values()) {
+            if (committee.getElection().isDeclared()) activeElections++;
+        }
+        for (DistrictCommittee committee : districtCommittees.values()) {
+            if (committee.getElection().isDeclared()) activeElections++;
+        }
+        return activeElections;
+    }
+
+    private String sanitizeCsvValue(String value) {
+        return value == null ? "" : value.replace(",", " ");
     }
 }

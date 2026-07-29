@@ -34,14 +34,16 @@ public class DivisionalCommittee extends Committee implements CommitteeOperation
 
     @Override
     public void addLeader(Member m) {
-        if (m != null) divisionalCommitteeLeader.add(m);
+        if (m != null && !divisionalCommitteeLeader.contains(m)) {
+            divisionalCommitteeLeader.add(m);
+        }
     }
 
     public void addLeader(Member m, Role role, CommitteeLevel level){
         if (m == null) return;
         m.setRole(role);
         m.setCommitteeLevel(level);
-        divisionalCommitteeLeader.add(m);
+        addLeader(m);
     }
 
     @Override

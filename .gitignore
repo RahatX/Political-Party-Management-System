@@ -1,0 +1,12 @@
+# Eclipse and Java build output
+bin/
+out/
+*.class
+
+# IDE metadata that is local to a workstation
+.idea/
+*.iml
+
+# Operating system files
+.DS_Store
+Thumbs.db
