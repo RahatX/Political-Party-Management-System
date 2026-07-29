@@ -10,7 +10,11 @@ import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
+import model.Address;
+import model.CommitteeLevel;
+import model.District;
 import model.Member;
+import model.Role;
 import service.PartySystem;
 
 public final class MainGUISmokeTest {
@@ -22,7 +26,9 @@ public final class MainGUISmokeTest {
 
     private void run() throws Exception {
         Files.createDirectories(previewDirectory);
-        PartySystem system = new PartySystem(Files.createTempDirectory("ppm-ui-test-"));
+        Path testDataDirectory = Files.createTempDirectory("ppm-ui-test-");
+        PartySystem system = new PartySystem(testDataDirectory);
+        seedTestData(system);
         MainGUI gui = new MainGUI(system);
         SwingUtilities.invokeAndWait(gui::init);
         try {
@@ -45,10 +51,16 @@ public final class MainGUISmokeTest {
             captureWorkspaceView(gui, "DONATIONS", "07-donations.png");
             captureWorkspaceView(gui, "ELECTIONS", "08-elections.png");
             captureWorkspaceView(gui, "PROFILE", "09-profile.png");
+            SwingUtilities.invokeAndWait(() -> {
+                gui.getFrame().setSize(1024, 640);
+                gui.showWorkspaceView("OVERVIEW");
+            });
+            settle();
+            capture(gui.getFrame(), "10-workspace-compact.png");
         } finally {
             SwingUtilities.invokeAndWait(gui.getFrame()::dispose);
         }
-        System.out.println("MainGUISmokeTest passed: 9 nonblank views rendered to "
+        System.out.println("MainGUISmokeTest passed: 10 nonblank views rendered to "
                 + previewDirectory.toAbsolutePath());
     }
 
@@ -61,6 +73,38 @@ public final class MainGUISmokeTest {
 
     private void settle() throws InterruptedException {
         Thread.sleep(150);
+    }
+
+    private void seedTestData(PartySystem system) throws Exception {
+        Member alice = testMember(
+                "TEST-100", "Alice Rahman", "alice@example.com", District.Dhaka);
+        Member karim = testMember(
+                "TEST-200", "Karim Ahmed", "karim@example.com", District.Rajshahi);
+        system.applyForMembership(alice);
+        system.applyForMembership(karim);
+        system.approveApplication(alice.getNationalId());
+        system.approveApplication(karim.getNationalId());
+        system.applyForMembership(testMember(
+                "TEST-300", "Samira Khan", "samira@example.com", District.Sylhet));
+        system.recordDonation(alice, 5000);
+        system.recordDonation(null, 50);
+        system.recordDonation(karim, 1.0E24);
+    }
+
+    private Member testMember(String id, String name, String email, District district) {
+        return new Member(
+                id,
+                name,
+                email,
+                "01700000000",
+                "secret",
+                "Student",
+                100000,
+                false,
+                false,
+                new Address(district),
+                Role.MEMBER,
+                CommitteeLevel.DISTRICT);
     }
 
     private void capture(JFrame frame, String fileName) throws Exception {

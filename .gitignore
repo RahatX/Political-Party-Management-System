@@ -1,6 +1,7 @@
 # Eclipse and Java build output
 bin/
 out/
+dist/
 *.class
 
 # IDE metadata that is local to a workstation

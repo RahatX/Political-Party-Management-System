@@ -14,38 +14,6 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>src/data/data_donations.txt</name>
-			<type>1</type>
-			<location>C:/Users/HP ZBOOK 15 G3/OneDrive/Java/PoliticalPartyManagement/src/data/data_donations.txt</location>
-		</link>
-		<link>
-			<name>src/data/data_members.csv</name>
-			<type>1</type>
-			<location>C:/Users/HP ZBOOK 15 G3/OneDrive/Java/PoliticalPartyManagement/data/data_members.csv</location>
-		</link>
-		<link>
-			<name>src/data/data_pending.csv</name>
-			<type>1</type>
-			<location>C:/Users/HP ZBOOK 15 G3/OneDrive/Java/PoliticalPartyManagement/data/data_pending.csv</location>
-		</link>
-		<link>
-			<name>src/ui/ppm.icns</name>
-			<type>1</type>
-			<location>C:/Users/HP ZBOOK 15 G3/OneDrive/Java/PoliticalPartyManagement/src/ui/ppm.icns</location>
-		</link>
-		<link>
-			<name>src/ui/ppm.ico</name>
-			<type>1</type>
-			<location>C:/Users/HP ZBOOK 15 G3/OneDrive/Java/PoliticalPartyManagement/src/ui/ppm.ico</location>
-		</link>
-		<link>
-			<name>src/ui/ppm.png</name>
-			<type>1</type>
-			<location>C:/Users/HP ZBOOK 15 G3/OneDrive/Java/PoliticalPartyManagement/src/ui/ppm.png</location>
-		</link>
-	</linkedResources>
 	<filteredResources>
 		<filter>
 			<id>1767631588302</id>

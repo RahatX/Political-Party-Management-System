@@ -16,11 +16,13 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.text.DecimalFormat;
@@ -53,6 +55,7 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
+import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -63,7 +66,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableRowSorter;
-import javax.swing.plaf.basic.BasicButtonUI;
 import model.Address;
 import model.CommitteeLevel;
 import model.District;
@@ -825,18 +827,18 @@ public final class MainGUI {
     private final class OverviewView extends JPanel implements Refreshable {
         private static final long serialVersionUID = 1L;
         private final JLabel greeting = new JLabel();
-        private final MetricCard members = new MetricCard("Approved members");
-        private final MetricCard pending = new MetricCard("Pending applications");
-        private final MetricCard leaders = new MetricCard("Active leaders");
-        private final MetricCard elections = new MetricCard("Active elections");
-        private final MetricCard donations = new MetricCard("Donations (BDT)");
+        private final MetricCard members = new MetricCard("Members");
+        private final MetricCard pending = new MetricCard("Pending");
+        private final MetricCard leaders = new MetricCard("Leaders");
+        private final MetricCard elections = new MetricCard("Elections");
+        private final MetricCard donations = new MetricCard("Donations");
         private final DefaultTableModel activityModel =
                 tableModel("Date", "Donor", "Amount (BDT)");
 
         OverviewView() {
             setLayout(new BorderLayout());
             setBackground(BACKGROUND);
-            JPanel content = new JPanel();
+            JPanel content = new VerticalScrollablePanel();
             content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
             content.setBackground(BACKGROUND);
             content.setBorder(BorderFactory.createEmptyBorder(28, 28, 28, 28));
@@ -892,13 +894,15 @@ public final class MainGUI {
             JPanel activity = sectionPanel("Recent donations");
             JTable table = createTable(activityModel);
             activity.add(new JScrollPane(table), BorderLayout.CENTER);
-            activity.setPreferredSize(new Dimension(700, 245));
+            activity.setPreferredSize(new Dimension(0, 245));
+            activity.setMinimumSize(new Dimension(0, 245));
             activity.setMaximumSize(new Dimension(Integer.MAX_VALUE, 245));
             activity.setAlignmentX(Component.LEFT_ALIGNMENT);
             content.add(activity);
 
             JScrollPane scroll = new JScrollPane(content);
             scroll.setBorder(null);
+            scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
             scroll.getVerticalScrollBar().setUnitIncrement(18);
             add(scroll, BorderLayout.CENTER);
         }
@@ -920,7 +924,7 @@ public final class MainGUI {
                 activityModel.addRow(new Object[] {
                     record.getFormattedTimestamp(),
                     record.getDonor(),
-                    MONEY.format(record.getAmount())
+                    readableMoney(record.getAmount())
                 });
             }
         }
@@ -1003,7 +1007,7 @@ public final class MainGUI {
                     member.getAddress().getDivision(),
                     member.getAddress().getDistrict(),
                     member.getEmail(),
-                    MONEY.format(member.getDonation())
+                    readableMoney(member.getDonation())
                 });
             }
             rebuildManagementActions();
@@ -1260,15 +1264,15 @@ public final class MainGUI {
         @Override
         public void refresh() {
             if (currentUser == null) return;
-            totalValue.setText("BDT " + MONEY.format(system.getDonations()));
-            personalValue.setText("BDT " + MONEY.format(currentUser.getDonation()));
+            totalValue.setText("BDT " + readableMoney(system.getDonations()));
+            personalValue.setText("BDT " + readableMoney(currentUser.getDonation()));
             setStatus(status, "Donations are saved to the organization ledger.", MUTED);
             model.setRowCount(0);
             for (DonationRecord record : system.getDonationHistory()) {
                 model.addRow(new Object[] {
                     record.getFormattedTimestamp(),
                     record.getDonor(),
-                    MONEY.format(record.getAmount())
+                    readableMoney(record.getAmount())
                 });
             }
         }
@@ -1906,8 +1910,7 @@ public final class MainGUI {
     }
 
     private JButton navButton(String text) {
-        JButton button = new JButton(text);
-        button.setUI(new BasicButtonUI());
+        JButton button = new SidebarButton(text);
         button.setFont(FONT_MEDIUM);
         button.setForeground(new Color(213, 223, 217));
         button.setBackground(SIDEBAR);
@@ -2003,10 +2006,19 @@ public final class MainGUI {
 
     private String compactMoney(double amount) {
         double absolute = Math.abs(amount);
+        if (absolute >= 1_000_000_000_000d) {
+            return new DecimalFormat("0.##E0").format(amount);
+        }
         if (absolute >= 1_000_000_000) return MONEY.format(amount / 1_000_000_000) + "B";
         if (absolute >= 1_000_000) return MONEY.format(amount / 1_000_000) + "M";
         if (absolute >= 1_000) return MONEY.format(amount / 1_000) + "K";
         return MONEY.format(amount);
+    }
+
+    private String readableMoney(double amount) {
+        return Math.abs(amount) >= 1_000_000_000_000d
+                ? new DecimalFormat("0.##E0").format(amount)
+                : MONEY.format(amount);
     }
 
     private String firstName(String name) {
@@ -2036,6 +2048,7 @@ public final class MainGUI {
             setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(BORDER),
                     BorderFactory.createEmptyBorder(16, 17, 16, 17)));
+            setMinimumSize(new Dimension(0, 96));
             JLabel label = new JLabel(title);
             label.setFont(new Font("Segoe UI", Font.PLAIN, 12));
             label.setForeground(MUTED);
@@ -2047,6 +2060,35 @@ public final class MainGUI {
 
         void setValue(String text) {
             value.setText(text);
+        }
+    }
+
+    private static final class SidebarButton extends JButton {
+        private static final long serialVersionUID = 1L;
+
+        SidebarButton(String text) {
+            super(text);
+            setRolloverEnabled(true);
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D copy = (Graphics2D) graphics.create();
+            copy.setRenderingHint(
+                    RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            Color background = getBackground();
+            if (getModel().isRollover() && !PRIMARY.equals(background)) {
+                background = new Color(38, 55, 47);
+            }
+            copy.setColor(background);
+            copy.fillRect(0, 0, getWidth(), getHeight());
+            copy.setFont(getFont());
+            copy.setColor(getForeground());
+            FontMetrics metrics = copy.getFontMetrics();
+            int textY = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
+            copy.drawString(getText(), 13, textY);
+            copy.dispose();
         }
     }
 
@@ -2095,6 +2137,41 @@ public final class MainGUI {
         @Override
         public void changedUpdate(DocumentEvent event) {
             action.run();
+        }
+    }
+
+    private static final class VerticalScrollablePanel extends JPanel implements Scrollable {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(
+                Rectangle visibleRectangle,
+                int orientation,
+                int direction) {
+            return 18;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(
+                Rectangle visibleRectangle,
+                int orientation,
+                int direction) {
+            return Math.max(18, visibleRectangle.height - 36);
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
         }
     }
 }
