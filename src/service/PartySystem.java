@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.*;
 import model.*;
 
-public class PartySystem {
+public final class PartySystem {
 
     private final CentralCommittee centralCommittee;
     private final Map<Division, DivisionalCommittee> divisionCommittees = new EnumMap<>(Division.class);

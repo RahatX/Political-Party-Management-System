@@ -7,7 +7,7 @@ import model.Member;
 import model.Role;
 import service.Election;
 
-public class CentralCommittee extends Committee implements CommitteeOperations {
+public final class CentralCommittee extends Committee implements CommitteeOperations {
 
     private final List<DivisionalCommittee> divisionals;
     private final List<Member> centralCommitteeLeader;

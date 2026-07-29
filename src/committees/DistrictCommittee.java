@@ -7,7 +7,7 @@ import model.Member;
 import model.Role;
 import service.Election;
 
-public class DistrictCommittee extends Committee implements CommitteeOperations {
+public final class DistrictCommittee extends Committee implements CommitteeOperations {
     private final List<Member> districtCommitteeLeader;
     private final List<Member> member;
     private final CommitteeLevel level = CommitteeLevel.DISTRICT;

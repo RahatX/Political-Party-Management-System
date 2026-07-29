@@ -73,10 +73,15 @@ public class Election {
         if (level == CommitteeLevel.CENTRAL && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL) {
             return false;
         }
-        if (level == CommitteeLevel.DIVISIONAL && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL) {
+        if (level == CommitteeLevel.DIVISIONAL
+                && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL
+                && currentUser.getCommitteeLevel() != CommitteeLevel.DIVISIONAL) {
             return false;
         }
-        if (level == CommitteeLevel.DISTRICT && (currentUser.getCommitteeLevel() != CommitteeLevel.DIVISIONAL && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL)) {
+        if (level == CommitteeLevel.DISTRICT
+                && currentUser.getCommitteeLevel() != CommitteeLevel.DISTRICT
+                && currentUser.getCommitteeLevel() != CommitteeLevel.DIVISIONAL
+                && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL) {
             return false;
         }
         // open the election
@@ -177,10 +182,15 @@ public class Election {
         if (level == CommitteeLevel.CENTRAL && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL) {
             return false;
         }
-        if (level == CommitteeLevel.DIVISIONAL && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL) {
+        if (level == CommitteeLevel.DIVISIONAL
+                && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL
+                && currentUser.getCommitteeLevel() != CommitteeLevel.DIVISIONAL) {
             return false;
         }
-        if (level == CommitteeLevel.DISTRICT && (currentUser.getCommitteeLevel() != CommitteeLevel.DIVISIONAL && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL)) {
+        if (level == CommitteeLevel.DISTRICT
+                && currentUser.getCommitteeLevel() != CommitteeLevel.DISTRICT
+                && currentUser.getCommitteeLevel() != CommitteeLevel.DIVISIONAL
+                && currentUser.getCommitteeLevel() != CommitteeLevel.CENTRAL) {
             return false;
         }
         // count winners and add them to committee
@@ -209,6 +219,11 @@ public class Election {
             snapshot.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
         return snapshot;
+    }
+
+    public int getVoteCount(Role role, Member candidate) {
+        Map<Member, Integer> roleVotes = votes.get(role);
+        return roleVotes == null ? 0 : roleVotes.getOrDefault(candidate, 0);
     }
 
     public boolean isDeclared() {

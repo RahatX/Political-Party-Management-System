@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import model.Address;
 import model.CommitteeLevel;
 import model.District;
+import model.Division;
 import model.Member;
 import model.Role;
 
@@ -59,6 +60,17 @@ public final class PartySystemTest {
         check(member.getRole() == Role.MEMBER, "demoted leader becomes a member");
         check(system.getDistrictCommittee(District.Dhaka).getMembers().contains(member),
                 "demoted leader returns to district membership");
+        check(system.promoteToLeader(
+                        member.getNationalId(),
+                        CommitteeLevel.DISTRICT,
+                        Role.PRESIDENT,
+                        Division.Dhaka,
+                        District.Dhaka),
+                "member can be assigned as a district president");
+        check(system.declareElection(system.getDistrictCommittee(District.Dhaka), member),
+                "district president can declare a district election");
+        check(system.closeElection(system.getDistrictCommittee(District.Dhaka), member),
+                "district president can close a district election");
 
         system.saveToFiles();
         PartySystem reloaded = new PartySystem(dataDirectory);
