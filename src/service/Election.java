@@ -55,6 +55,7 @@ public class Election {
     }
 
     public boolean declareElection(Member currentUser) {
+        if (declared) return false;
         CommitteeLevel level = null;
         if (committee instanceof CentralCommittee) {
             level = CommitteeLevel.CENTRAL;

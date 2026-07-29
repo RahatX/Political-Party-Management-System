@@ -241,6 +241,9 @@ public final class PartySystem {
             return false;
         }
         List<Member> winners = election.getWinners();
+        if (winners.isEmpty()) {
+            return true;
+        }
         for (Member former : formerLeaders) {
             if (former.getRole() == Role.ADMIN) continue;
             removeFromAllPlacements(former);

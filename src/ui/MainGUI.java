@@ -78,6 +78,8 @@ import service.PartySystem;
 import service.SystemStats;
 
 public final class MainGUI {
+    public static final String VERSION = "1.0.0";
+
     private static final Color BACKGROUND = new Color(244, 247, 245);
     private static final Color SURFACE = Color.WHITE;
     private static final Color SIDEBAR = new Color(26, 36, 31);
@@ -118,6 +120,10 @@ public final class MainGUI {
     }
 
     public static void main(String[] args) {
+        if (args.length > 0 && "--version".equals(args[0])) {
+            System.out.println("Political Party Management System " + VERSION);
+            return;
+        }
         configureLookAndFeel();
         SwingUtilities.invokeLater(() -> new MainGUI().init());
     }
@@ -1358,7 +1364,11 @@ public final class MainGUI {
             committeeBox.removeAllItems();
             committeeBox.addItem(new CommitteeOption(
                     "National Central Committee", system.getCentralCommittee()));
-            if (currentUser != null && currentUser.getRole() == Role.ADMIN) {
+            boolean nationalAccess = currentUser != null
+                    && (currentUser.getRole() == Role.ADMIN
+                            || (currentUser.getRole() == Role.PRESIDENT
+                                    && currentUser.getCommitteeLevel() == CommitteeLevel.CENTRAL));
+            if (nationalAccess) {
                 for (Division division : Division.values()) {
                     committeeBox.addItem(new CommitteeOption(
                             division + " Divisional Committee",
@@ -1370,7 +1380,24 @@ public final class MainGUI {
                         division + " Divisional Committee",
                         system.getDivisionalCommittee(division)));
             }
-            if (currentUser != null) {
+            if (nationalAccess) {
+                for (District district : District.values()) {
+                    committeeBox.addItem(new CommitteeOption(
+                            district + " District Committee",
+                            system.getDistrictCommittee(district)));
+                }
+            } else if (currentUser != null
+                    && currentUser.getRole() == Role.PRESIDENT
+                    && currentUser.getCommitteeLevel() == CommitteeLevel.DIVISIONAL) {
+                Division division = currentUser.getAddress().getDivision();
+                for (District district : District.values()) {
+                    if (district.getDivision() == division) {
+                        committeeBox.addItem(new CommitteeOption(
+                                district + " District Committee",
+                                system.getDistrictCommittee(district)));
+                    }
+                }
+            } else if (currentUser != null) {
                 District district = currentUser.getAddress().getDistrict();
                 committeeBox.addItem(new CommitteeOption(
                         district + " District Committee",

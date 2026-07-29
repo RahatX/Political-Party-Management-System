@@ -4,7 +4,7 @@ A Java 21 desktop application for managing political-party membership, committee
 leadership, donations, and elections. The project was developed for CSE215
 (Object Oriented Programming) and uses only the Java standard library and Swing.
 
-[Download the latest runnable JAR](https://github.com/RahatX/Political-Party-Management-System/releases/latest)
+[Download the runnable JAR](release/Political-Party-Management-System.jar)
 
 ![PPMS welcome screen](docs/screenshots/welcome.png)
 
@@ -146,7 +146,7 @@ java -ea -cp out ui.MainGUISmokeTest
 Expected results:
 
 ```text
-PartySystemTest passed: 32 assertions
+PartySystemTest passed: 33 assertions
 MainGUISmokeTest passed: 10 nonblank views rendered
 ```
 
@@ -163,6 +163,12 @@ New-Item -ItemType Directory -Force dist | Out-Null
 jar --create --file dist/Political-Party-Management-System.jar `
     --main-class ui.MainGUI -C out .
 java -jar dist/Political-Party-Management-System.jar
+```
+
+Verify the packaged application without opening a window:
+
+```powershell
+java -jar dist/Political-Party-Management-System.jar --version
 ```
 
 ## Data Persistence

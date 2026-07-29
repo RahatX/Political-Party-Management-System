@@ -71,6 +71,8 @@ public final class PartySystemTest {
                 "district president can declare a district election");
         check(system.closeElection(system.getDistrictCommittee(District.Dhaka), member),
                 "district president can close a district election");
+        check(member.getRole() == Role.PRESIDENT,
+                "leadership is retained when an election has no candidates");
 
         system.saveToFiles();
         PartySystem reloaded = new PartySystem(dataDirectory);
